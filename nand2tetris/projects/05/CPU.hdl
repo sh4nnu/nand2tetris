@@ -40,4 +40,69 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+	
+	//check for A instruction
+	Not(in = instruction[15] , out = Ainstruction); //if out == 1 implies it's A 
+
+	//check for C Instruction
+	Not(in = Ainstruction, out = Cinstruction); // if out == 1 it's a C instruction.
+
+	// if cinst then d1 ==> access A register
+	And( a = Cinstruction , b = instruction[5] , out = SlctAReg);
+	
+	// load to ARegister : if  Ainstruction or (d1 and cinst)
+	Or( a = Ainstruction, b = SlctAReg, out = LoadA);
+
+	// Input for ARegister
+	Mux16( a = instruction, b = ALUout, sel = SlctAReg, out = ARegin);
+
+	// ARegister
+	ARegister( in = ARegin, load = LoadA, out = Aout);
+	
+	// DRegister
+
+	//load for dReg ===> Cinst and d2
+	And( a = Cinstruction, b = instruction[4] , out = LoadD);
+	
+	//d3 used for deciding whether to write in memory or not
+	And( a = Cinstruction, b = instruction[3] , out = writeM);
+
+	DRegister( in = ALUout, load = LoadD, out = Dout);
+	// memory : fetch cycle initialized by a bit
+
+	Mux16( a = Aout, b = inM, sel = instruction[12] , out = AMout);
+
+
+//ALU PART
+
+	//ALU Logic 
+	ALU( x = Dout, y = AMout,
+		zx = instruction[11],
+		nx = instruction[10],
+		zy = instruction[9],
+		ny = instruction[8],
+		f = instruction[7],
+		no = instruction[6],
+							zr = ZRout, ng = NGout, out = ALUout);
+//Memory output
+
+Or16( a = ALUout, b = false, out = outM);
+
+Or16( a = Aout, b = false, out[0..14] = addressM);
+//JUMP bits
+	And( a= ZRout,  b = 	instruction[1], out = JEQ);	
+	And( a = NGout, b = instruction[2], out = JLT);
+	Or( a = ZRout, b = NGout, out = cpositive);
+	Not( in = cpositive, out = positive);
+	And( a = positive, b = instruction[0], out = JGT);
+	Or( a  = JLT, b = JEQ , out = JLE);
+	
+
+//PC
+	Or( a = JLE, b = JGT, out = JumptoA);
+	And( a = Cinstruction, b = JumptoA, out = PCLoad);
+	Not(in = PCLoad	, out = PCinc);
+	PC( in = Aout, inc = PCinc, load = PCLoad, reset = reset, out[0..14] = pc);
+	
+
 }
