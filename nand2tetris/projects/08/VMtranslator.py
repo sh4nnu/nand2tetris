@@ -24,9 +24,9 @@ class Parser:
             "goto" : "C_BRANCH",
             "if-goto" : "C_BRANCH",
             "label" : "C_BRANCH",
-            "call" : "C_FUNCTION",
+            "call" : "C_CALL",
             "function" : "C_FUNCTION",
-            "return" : "C_FUNCTION"
+            "return" : "C_RETURN"
             }
 
     def hasMoreCommands(self):
@@ -66,8 +66,10 @@ class CodeWriter:
     def __init__(self,dest):
         self.outfile = open(dest, "w")
         self.newLabel = 0 #we are going to create many labels here for push and pop, so we will be hav
-        self.source,self.file = dest[:-3]
-        
+        self.functionCall = 0
+    #set file name
+    def set_file_name(self,fileName):
+        self.source = fileName.replace(".vm","").split('/')[-1]    
 
 
     def close(self):
@@ -80,8 +82,10 @@ class CodeWriter:
         text += "D = A\n"
         text += "@SP\n"
         text += "M = D\n"
-
+        
         self.outfile.write(text)
+        self.writeCall('Sys.init','0')
+
         
 #creates a label (LABEL) in assembly         
     def writeLabel(self,string):
@@ -99,28 +103,160 @@ class CodeWriter:
     def writeIf(self,string):
         text = ""
         text += "@SP\n"
-        text += "A = M -1\n"
+        text += "AM = M -1\n"
         text += "D = M\n"
         text += "@"+string+"\n"
-        text += "D;JGT\n"
-
+        text += "D;JNE\n"
         self.outfile.write("//if statement\n"+text)
-
+        
+        
+        
 #function to handle all the  three branching commands
-    def writeBranching(self, command, location)
+    def writeBranching(self, command, location):
         if command == "label":
-            writeLabel(location)
+            self.writeLabel(location)
         elif command == "goto":
-            writeGoto(location)
+            self.writeGoto(location)
         elif command == "if-goto":
-            writeIf(location)
+            self.writeIf(location)
         else:
             self.outfile.write("this implementation is not found yet:"+ command)
 
-#defining a function
-            
+#implementing function handling
+    def writeFunction(self, funcName, nVar):
+        
+        self.writeLabel(funcName+"$label")
+        text = ""
+        for i in range(int(nVar)):             
+            text += "D = 0\n"                        
+            text += "@SP\n"                        
+            text += "A = M\n"                        
+            text += "M = D\n"#accesing *SP                      
+            text += "@SP\n"                        
+            text += "M = M + 1\n"# Incrementing SP pointer (SP++)
+        self.outfile.write("//function "+funcName+" "+nVar+"\n"+text)
+    def writeCall(self, funcName, nVar):
+        
+        text = ""
+        self.functionCall+=1
+        text += "@"+funcName+"$ret."+str(self.functionCall)+"\n"#label the return address.
+        text += "D = A\n"
+        text += "@SP\n"
+        text += "A = M\n"
+        text += "M = D\n"
+        text += "@SP\n"
+        text += "M = M + 1\n"
+
+       ##
+        text += "@LCL\n"# push LCL
+        text += "D = M\n"
+        text += "@SP\n"
+        text += "A = M\n"
+        text += "M = D\n"
+        text += "@SP\n"
+        text += "M = M + 1\n"
+
+        text += "@ARG\n"# push ARG
+        text += "D = M\n"
+        text += "@SP\n"
+        text += "A = M\n"
+        text += "M = D\n"
+        text += "@SP\n"
+        text += "M = M + 1\n"
+
+        text += "@THIS\n"# push THIS
+        text += "D = M\n"
+        text += "@SP\n"
+        text += "A = M\n"
+        text += "M = D\n"
+        text += "@SP\n"
+        text += "M = M + 1\n"
+
+        text += "@THAT\n"# push THAT
+        text += "D = M\n"
+        text += "@SP\n"
+        text += "A = M\n"
+        text += "M = D\n"
+        text += "@SP\n"
+        text += "M = M + 1\n"
 
         
+        text += "@SP\n"#LCL = SP
+        text += "D = M\n"
+        text += "@LCL\n"
+        text += "M = D\n"
+
+        
+       #ARG = SP - nVar - 5
+        text += "@"+str(5+int(nVar))+"\n"
+        text += "D = D - A\n"
+        text += "@ARG\n"
+        text += "M = D\n"
+        
+
+        
+        #go to function
+        text += "@"+funcName+"$label\n"#goto function name.
+        text += "0;JMP\n"
+        
+        ##
+        
+        text += "("+funcName+"$ret."+str(self.functionCall) +")\n"
+
+        self.outfile.write("//call "+funcName+" "+nVar+"\n"+text)
+#implementing returning a function
+    def writeReturn(self):
+        endFrame = 'R13'
+        retAddr = 'R14' 
+        text = ""
+        text += "@LCL\n"#endFrame = LCL
+        text += "D = M\n"
+        text += "@"+endFrame+"\n"
+        text += "M = D\n"
+
+        text += "@"+endFrame+"\n"#*(endFrame-5)
+        text += "D = M\n"
+        text += "@5\n"
+        text += "D = D - A\n"
+        text += "A = D\n"
+        text += "D = M\n"
+        #retAddr = *(endFrame)
+        text += "@"+retAddr+"\n"
+        text += "M = D\n"
+
+        text += "@SP\n"#replacing ARG with return value
+        text += "AM = M - 1\n"#*ARG = pop()
+        text += "D = M\n"
+        text += "@ARG\n"
+        text += "A = M\n"
+        text += "M = D\n"
+
+        text += "@ARG\n"#SP = ARG + 1
+        text += "D = M + 1\n"
+        text += "@SP\n"
+        text += "M = D\n"
+
+        retset = 1
+        for addr in ["@THAT", "@THIS", "@ARG", "@LCL"]:
+            
+            text += "@"+endFrame+"\n"#THAT = *(endFrame -1)
+            text += "D = M\n"
+            text += "@"+str(retset)+"\n"
+            text += "D = D - A\n"
+            text += "A = D\n"
+            text += "D = M\n"
+            text += addr+"\n"
+            text += "M = D\n"
+            retset += 1
+
+        #goto return
+        text += "@"+retAddr+"\n"
+        text += "A = M\n"
+        text += "0;JMP\n"
+
+        self.outfile.write("//return\n"+text)
+
+
 #translates the arithmetic implementations of the vm    
     def writeArithmetic(self, command):
         text = ""
@@ -342,7 +478,7 @@ class CodeWriter:
             if segment == "static":
                 
                 text += "@SP\n"
-                text += "AM = M -1\n"#pop value into D
+                text += "AM = M - 1\n"#pop value into D
                 text += "D = M\n"
                 text += "@"+self.source+"."+index+"\n"#storing the popped value in static variable
                 text += "M = D\n"
@@ -448,17 +584,23 @@ class CodeWriter:
 #main function implementatin.
 
 def main():
+    
     coreInFile = sys.argv[1]
-
+    if coreInFile[-3:] == ".vm":
+        out = coreInFile[:-3]
+    else:
+        out = coreInFile
+    codewriter = CodeWriter(out + ".asm")
 
     
 #function which handles writing of all code.
     def writer(file):
-        source = file
+        source = file    
+        
         if source[-3:] == ".vm":
             source = source[:-3]
         parser = Parser(source + ".vm")
-        codewriter = CodeWriter(source + ".asm")
+        
         codewriter.writeInit()
         while parser.hasMoreCommands():
             parser.advance()
@@ -469,29 +611,39 @@ def main():
                 codewriter.writeArithmetic(parser.command[0])
             elif cType == "C_BRANCH":
                 codewriter.writeBranching(parser.command[0], parser.arg1())
-        codewriter.close()
+            elif cType == "C_FUNCTION":
+                codewriter.writeFunction(parser.arg1(),parser.arg2())
 
+            elif cType == "C_CALL":
+                codewriter.writeCall(parser.arg1(),parser.arg2())
+
+            elif cType == "C_RETURN":
+                codewriter.writeReturn()
+        
+        
 
 #If the  given argument is a file.
 
     if os.path.isfile(coreInFile):
-        writer(codeInFile)        
+        writer(coreInFile)
+        print("1")
 
 
     elif os.path.isdir(coreInFile):
-        path = './*.vm'
+        path = "./"+coreInFile+"/*.vm"
         files = glob.glob(path)
         for name in files:
             try:
-                with open(name) as source:
-                    writer(source)
+                codewriter.set_file_name(name)
+                writer(name)
             
             except IOError as e:
                 if e.errno != errno.EISDIR:
-                raise
+                    raise
             
         
         
-    
+    codewriter.close()
+
 if __name__ == "__main__":
     main()
