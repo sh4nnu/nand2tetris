@@ -626,7 +626,7 @@ def main():
 
     if os.path.isfile(coreInFile):
         writer(coreInFile)
-        print("1")
+
 
 
     elif os.path.isdir(coreInFile):
