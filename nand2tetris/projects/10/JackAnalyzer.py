@@ -55,7 +55,7 @@ class jackTokenizer:
         if len(self.tokens) != 0:
             self.token =self.tokens[0]                
             print("token: " + str(self.token)+" type: " + self.tokenType())
-            #print( self.tokens)
+            print( self.token)
             
             self.tokens = self.tokens[1:]
             
@@ -66,10 +66,9 @@ class jackTokenizer:
             
         
     def removeComments(self, lines):
-        uncommented = re.sub('//.*?\n', '\n', lines)
-	uncommented = re.sub('/\*.*?\*/', '', uncommented, flags=re.DOTALL)
         
-                    
+        uncommented = re.sub('//.*?\n', '\n', lines)
+        uncommented = re.sub('/\*.*?\*/', '', uncommented, flags=re.DOTALL)
         self.tokens = uncommented
         #print uncommented
 
@@ -80,7 +79,7 @@ class jackTokenizer:
 
         split_codes = filter(None, split_codes)
 
-        self.tokens = split_codes
+        self.tokens = list(split_codes)
         
         
                
@@ -126,7 +125,7 @@ def main():
 
     def Parser(inputFile):
         source = inputFile
-        out_file = open(inputFile[:-5] + "_Tokenizertest.xml","w+")
+        out_file = open(inputFile[:-5] + "_Tokenizertest.xml","wb")
         tokenizer = jackTokenizer(source)
         #writing tokenizer test file
         
@@ -143,8 +142,9 @@ def main():
             
         indent(xml_out)
         tr = xml.ElementTree(xml_out)
-        tr.write(out_file)
         
+        tr.write(out_file)
+
         out_file.close()
 
     if os.path.isfile(inFile):
