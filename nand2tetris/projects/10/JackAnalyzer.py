@@ -62,7 +62,7 @@ class jackTokenizer:
         else:
               
             self.cursorAtEnd = True
-
+        return self.token
             
         
     def removeComments(self, lines):
@@ -81,8 +81,28 @@ class jackTokenizer:
 
         self.tokens = list(split_codes)
         
-        
-               
+    def nextToken(self):
+        if self.hasMoreTokens():
+            return self.tokens[0]
+        else:
+            return ("ERROR!!!")
+    #returns the type of the next token
+
+    def nextType(self):
+        element = self.nextToken()
+        if element in self.keyword.keys():
+            return 'keyword'
+        elif re.match(self.re_integer,element):
+            return 'integerConstant'
+        elif re.match(self.re_symbol, element):
+            return 'symbol'
+        elif re.match(self.re_identifier, element):
+            return 'identifier'
+        elif re.match(self.re_string, element):
+            return 'stringConstant'
+        else:
+            return 'NONE'
+    
     #-- API Routines Begin
 
     def tokenType(self):
@@ -101,7 +121,227 @@ class jackTokenizer:
                 
     #def keyWord(self):
         
-                
+
+
+
+
+
+
+class compilationEngine:
+
+    self.keywordConsts = {'true', 'false','null','this'}
+    self.binaryOp = {'+','-','*','|','<','>','='}
+    self.unaryOp = {'-','~'}
+
+
+    
+    def __init__(self, infile, outfile):
+        self.tokenizer = JackTokenizer(infile)
+        self.op = outfile
+        self.indent = ""
+        self.mStack =[] #a stack to store all non terminal blocks opened which have to be closed
+    def addIndent(self):
+        self.indent +="   "
+
+    def removeIndent(self):
+        self.indent = self.indent[:-4]
+    
+
+    def writeTerm(self, token, Ttype):
+        self.op.write(self.indent+"<"+Ttype+">"+ token + "</"+Ttype+">\n")
+
+
+    def startNonTerm(self, rule):
+        self.op.write(self."<"+rule+">\n")
+        self.addIndent()
+        self.mStack.append(rule)
+
+
+    def endNonTerm(self):
+        rule = self.mStack.pop()
+        self.removeIndent()
+        self.op.write(self.indent+"</"+rule+">\n")
+        
+    
+    def advance(self):
+        token = self.tokenizer.advance()
+        Ttype = self.tokenizer.tokenType()
+        self.writeTerm(token, Ttype)
+
+    def nextValue(self):
+        value = self.tokenizer.nextValue()
+        return value
+        
+    def nextToken(self):
+        return self.tokenizer.nextToken()
+
+    def writeArrayIndex(self):
+        self.advance()  #get "["
+        self.compileExpression() # compile the expression in the indexholder
+        self.advance() # get "]"
+
+    def existExpression(self):
+        return self.existTerm()
+
+    def existTerm(self):
+        token = self.nextToken()
+        Ttype = self.nextValue()
+
+        return (Ttype == "integerConstant" or Ttype == "stringConstant" \
+            or Ttype == "identifier" or token in self.unaryOp \
+            or token in self.keywordConsts or token == "(")
+            
+
+
+    def  eat(string):   # check for expected elements in the grammar
+        if self.nextToken == string:
+            self.advance()
+        else:
+            print("ERROR!! expected " + string)
+
+    #API BEGINS
+
+    #compiles let statement
+    
+    def compileLet(self):
+        self.startNonTerm('letStatement')
+        self.eat("let") # get 'let' keyword
+        self.advance() # get varName
+        if self.nextToken() == '[':
+            self.writeArrayIndex()
+        self.eat("=") # get '=' symbol
+        self.compileExpression()
+        self.eat(";") # get ';' symbol
+        self.endNonTerm()
+
+
+    #compiles if statement
+    def compileIf(self):
+        self.startNonTerm('ifStatement')
+        
+        self.eat("if") # get 'if' keyword
+        self.eat("(") # get '(' symbol
+        self.compileExpression()
+        self.eat(")") # get ')' symbol
+        self.eat("{")
+
+        self.compileStatements()
+        self.eat("}")        
+
+        if self.nextToken() == "else":
+            self.eat("else")
+            self.eat("{")
+
+            self.compileStatements()
+            self.eat("}")
+
+        self.endNonTerm()
+
+
+    # compiles while statement(loop)
+
+    def compileWhile(self):
+        self.startNonTerm("whileStatement")
+
+        self.eat("while")
+        self.eat("(")
+        self.compileExpression()
+        self.eat(")")
+        self.eat("{")
+        self.compileStatements()
+        self.eat("}")
+
+        self.endNonTerm()
+
+
+    #compiles do statements (subroutine call
+    def compileDo(self):
+        
+    
+
+        
+    #compiles expression list
+    def compileExpressionList(self):
+        self.startNonTerm('expressionList')
+        if self.existExpression():
+            self.compileexpression()
+        while self.nextToken() == ",":
+            self.eat(",") #get the symbol ","
+            if self.existExpression():
+                self.compileExpression()
+        
+        self.endNonTerm()
+        
+
+    #compiles expressions
+    def compileExpression(self):
+        self.startNonTerm('expression')
+        self.compileTerm()
+        while (self.nextToken() in binaryOp):
+            self.advance() # get the  binary op
+            self.compileTerm()
+
+        self.endNonTerm()
+
+    #compiles term
+
+    def compileTerm(self):
+        #Grammar : varname | constant
+        self.startNonTerm("term")# to start the new non terminal block
+
+        
+        if self.nextValue() == "integerConstant" or self.nextValue() == "stringConstant" or (self.nextValue() in self.keywordConsts):
+            self.advance() # to get the const
+        elif self.nextValue() == "identifier":
+            self.advance() # get varName or ClassName
+
+            if self.nextToken() == "[":
+                self.writeArrayIndex()
+
+            if self.nextToken() == "(":
+                self.eat("(") # get "("
+                self.compileExpressionList()
+                self.eat(")") # get ")"
+
+            if self.nextToken() == ".": # handles with subroutine call
+                self.eat(".") # get "."
+                self.advance() # get subRoutine name
+                self.eat("(") # get "("
+                self.compileExpressionList()
+                self.eat(")") # get ")"
+
+        elif (self.nextToken() in self.unaryOp):
+            self.advance()# get op
+            self.compileTerm()
+
+        elif self.nextToken == "(":
+            self.eat("(") # get "("
+            self.compileExpressionList()
+            self.eat(")") # get ")"
+
+        self.endNonTerm()
+
+    
+        
+
+
+
+    
+        
+        
+
+
+
+
+
+
+
+
+
+
+
+        
+        
 def main(): 
     
     inFile = sys.argv[1]
