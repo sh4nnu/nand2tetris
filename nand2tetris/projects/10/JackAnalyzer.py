@@ -9,6 +9,8 @@ class jackTokenizer:
     re_symbol = '\{|\}|\(|\)|\[|\]|\.|\,|\;|\+|-|\*|/|&|\||\<|\>|=|_|~'
     re_string = '"[^"]*"'
     re_identifier = '[A-Z_]|[a-z]'
+
+    
     #keywords
     keyword = {
             'class' : 'CLASS',
@@ -38,30 +40,26 @@ class jackTokenizer:
         self.infile = open(inpfile)        
         self.tokens = self.infile.read()
         self.token = ""
-        self.cursorAtEnd = False
+        
         self.removeComments(self.tokens)
         self.tokenize(self.tokens)
 
 
         
     def hasMoreTokens(self):
-        currentPosition = self.infile.tell()
-        self.advance()
-        self.infile.seek(currentPosition)
-        return not self.cursorAtEnd
-
+        if len(self.tokens) != 0:
+            return True
+        return False
 
     def advance(self):
-        if len(self.tokens) != 0:
+        if self.hasMoreTokens():
             self.token =self.tokens[0]                
             print("token: " + str(self.token)+" type: " + self.tokenType())
             print( self.token)
             
             self.tokens = self.tokens[1:]
-            
-        else:
-              
-            self.cursorAtEnd = True
+
+        
         return self.token
             
         
@@ -88,7 +86,7 @@ class jackTokenizer:
             return ("ERROR!!!")
     #returns the type of the next token
 
-    def nextType(self):
+    def nextValue(self):
         element = self.nextToken()
         if element in self.keyword.keys():
             return 'keyword'
@@ -129,19 +127,22 @@ class jackTokenizer:
 
 class compilationEngine:
 
-    self.keywordConsts = {'true', 'false','null','this'}
-    self.binaryOp = {'+','-','*','|','<','>','='}
-    self.unaryOp = {'-','~'}
+    
 
-
+    spl_char = { '<':'&lt;', '>':'&gt;', '"':'&quot;','&':'&amp;'}
     
     def __init__(self, infile, outfile):
-        self.tokenizer = JackTokenizer(infile)
+        self.tokenizer = jackTokenizer(infile)
         self.op = outfile
         self.indent = ""
         self.mStack =[] #a stack to store all non terminal blocks opened which have to be closed
+        self.keywordConsts = {'true', 'false','null','this'}
+        self.binaryOp = {'+','-','*','|','<','>','=','/','&'}
+        self.unaryOp = {'-','~'}
+
+        
     def addIndent(self):
-        self.indent +="   "
+        self.indent +="    "
 
     def removeIndent(self):
         self.indent = self.indent[:-4]
@@ -152,7 +153,7 @@ class compilationEngine:
 
 
     def startNonTerm(self, rule):
-        self.op.write(self."<"+rule+">\n")
+        self.op.write(self.indent+"<"+rule+">\n")
         self.addIndent()
         self.mStack.append(rule)
 
@@ -166,6 +167,12 @@ class compilationEngine:
     def advance(self):
         token = self.tokenizer.advance()
         Ttype = self.tokenizer.tokenType()
+        #handle string constant
+        if Ttype == "stringConstant":
+            token = token[1:-1]
+
+        if token in self.spl_char.keys():
+            token = self.spl_char[token]
         self.writeTerm(token, Ttype)
 
     def nextValue(self):
@@ -192,15 +199,152 @@ class compilationEngine:
             or token in self.keywordConsts or token == "(")
             
 
+    def existStatement(self):
+        return (self.nextToken() == "do") \
+               or (self.nextToken() == "let") \
+               or (self.nextToken() == "if") \
+               or (self.nextToken() == "while") \
+               or (self.nextToken() == "return") \
 
-    def  eat(string):   # check for expected elements in the grammar
-        if self.nextToken == string:
+    
+    def existVarDec(self):
+        return (self.nextToken() == "var")
+
+    def existClassVarDec(self):
+        return (self.nextToken() == "static" or self.nextToken() == "field")
+
+    def existSubroutineDec(self):
+        return (self.nextToken() == "constructor" or self.nextToken() == "function" or self.nextToken() == "method")
+
+    def existParameter(self):
+        return not (self.nextValue() == "symbol")
+
+    def writeParameter(self):
+        self.advance() # get type
+        self.advance() # get var name
+        if (self.nextToken() == ","):
+            self.advance() # get ","
+
+    def  eat(self,string):   # check for expected elements in the grammar
+        nextToken= self.nextToken()
+        print("!!"+nextToken+"!")
+        if nextToken == string:
             self.advance()
         else:
-            print("ERROR!! expected " + string)
+            print("ERROR!! expected " + string+"got: "   + nextToken)
+            exit()
 
     #API BEGINS
 
+    #compile parameter list
+
+    def compileParameterList(self):
+        self.startNonTerm("parameterList")
+        while self.existParameter():
+            self.writeParameter()
+        self.endNonTerm()
+
+
+#compile class variable declarations
+    def compileClassVarDec(self):
+        self.startNonTerm("classVarDec")
+        if self.nextToken() == "static":
+            self.eat("static")
+        else:
+            self.eat("field")
+
+        self.advance() #get varName type
+        self.advance() #get varName
+        while self.nextToken() == ",":
+            self.eat(",")
+            self.advance() #get var Name
+
+        self.eat(";")
+
+        self.endNonTerm()
+
+        
+    
+    #compiles class declaration
+            
+    def compileClass(self):
+        self.startNonTerm("class")
+        self.eat("class") # get "class"
+        self.advance() #get class name
+        self.eat("{")
+        while (self.existClassVarDec()):
+            self.compileClassVarDec()
+
+        while (self.existSubroutineDec()):
+            self.compileSubroutineDec()
+
+        self.eat("}")
+        self.endNonTerm()
+
+
+   #compile variable declaration     
+    def compileVarDec(self):
+        self.startNonTerm("varDec")
+        self.eat("var")
+        self.advance() #get var-type
+        self.advance() #get varName
+        while (self.nextToken() == ","):
+            self.eat(",")
+            self.advance()
+        self.eat(";")
+        self.endNonTerm()
+
+        
+        
+    #compile subroutine declaration
+    def compileSubroutineDec(self):
+        self.startNonTerm("subroutineDec")
+        if self.nextToken() == "constructor" or self.nextToken() == "function" or self.nextToken() == "method":
+            self.advance() # get constructor | method | function
+        else:
+            print("ERROR!!! keyword expected")
+            return
+        self.advance() # get type | void
+        self.advance() # get subroutine name
+        self.eat("(")
+        self.compileParameterList()
+        self.eat(")")
+        self.compileSubroutineBody()
+        self.endNonTerm()
+
+    #compiles subroutine body
+
+    def compileSubroutineBody(self):
+        self.startNonTerm("subroutineBody")
+        self.eat("{")
+        while(self.existVarDec()):
+            self.compileVarDec()
+        
+        self.compileStatements()
+        self.eat("}")
+        self.endNonTerm()
+
+
+    #
+
+    
+    #compile Statements
+    def compileStatements(self):
+        self.startNonTerm("statements")
+        while self.existStatement():
+            if self.nextToken() == "do":
+                self.compileDo()
+            elif self.nextToken() == "let":
+                self.compileLet()
+            elif self.nextToken() == "while":
+                self.compileWhile()
+            elif self.nextToken() == "if":
+                self.compileIf()
+            elif self.nextToken() == "return":
+                self.compileReturn()
+        self.endNonTerm()    
+
+    
     #compiles let statement
     
     def compileLet(self):
@@ -223,6 +367,7 @@ class compilationEngine:
         self.eat("(") # get '(' symbol
         self.compileExpression()
         self.eat(")") # get ')' symbol
+        
         self.eat("{")
 
         self.compileStatements()
@@ -256,7 +401,33 @@ class compilationEngine:
 
     #compiles do statements (subroutine call
     def compileDo(self):
-        
+        self.startNonTerm("doStatement")
+        self.eat("do")
+        self.advance()
+        if self.nextToken() == ".":
+            self.eat(".")
+            self.advance()
+        self.eat("(")
+        self.compileExpressionList();
+        self.eat(")")
+        self.eat(";")
+        self.endNonTerm()
+
+
+    #compiles return satement
+    def compileReturn(self):
+        self.startNonTerm("returnStatement")
+
+        self.eat("return")
+        if self.nextToken() != ";":
+            self.compileExpression()
+
+        self.eat(";")
+
+        self.endNonTerm()
+
+
+    
     
 
         
@@ -264,7 +435,7 @@ class compilationEngine:
     def compileExpressionList(self):
         self.startNonTerm('expressionList')
         if self.existExpression():
-            self.compileexpression()
+            self.compileExpression()
         while self.nextToken() == ",":
             self.eat(",") #get the symbol ","
             if self.existExpression():
@@ -277,24 +448,38 @@ class compilationEngine:
     def compileExpression(self):
         self.startNonTerm('expression')
         self.compileTerm()
-        while (self.nextToken() in binaryOp):
+        while (self.nextToken() in self.binaryOp):
             self.advance() # get the  binary op
             self.compileTerm()
 
         self.endNonTerm()
 
+    # compile subRoutine calls
+    def compileSubroutinecall(self):
+        self.startNonTerm("subroutineCall")
+        self.advance() # get subroutine name  |  class name
+        if self.nextToken() == ".": # if the above token is a class name
+            self.eat(".")
+            self.advance() # get subroutine name
+        self.eat("(")
+        self.compileExpressionList()
+        self.eat(")")
+
+        self.endNonTerm()
+
+        
     #compiles term
 
     def compileTerm(self):
         #Grammar : varname | constant
         self.startNonTerm("term")# to start the new non terminal block
 
-        
-        if self.nextValue() == "integerConstant" or self.nextValue() == "stringConstant" or (self.nextValue() in self.keywordConsts):
+        print("compiling term"+self.nextValue())
+        if self.nextValue() == "integerConstant" or self.nextValue() == "stringConstant" or (self.nextToken() in self.keywordConsts):
             self.advance() # to get the const
         elif self.nextValue() == "identifier":
             self.advance() # get varName or ClassName
-
+            
             if self.nextToken() == "[":
                 self.writeArrayIndex()
 
@@ -314,9 +499,9 @@ class compilationEngine:
             self.advance()# get op
             self.compileTerm()
 
-        elif self.nextToken == "(":
+        elif self.nextToken() == "(":
             self.eat("(") # get "("
-            self.compileExpressionList()
+            self.compileExpression()
             self.eat(")") # get ")"
 
         self.endNonTerm()
@@ -345,48 +530,19 @@ class compilationEngine:
 def main(): 
     
     inFile = sys.argv[1]
-    #If the  given argument is a file.
-
-    def indent(elem, level=0):
-         
-         i = "\n" + level*"  "
-         if len(elem):
-           if not elem.text or not elem.text.strip():
-             elem.text = i + "  "
-           if not elem.tail or not elem.tail.strip():
-             elem.tail = i
-           for elem in elem:
-             indent(elem, level+1)
-           if not elem.tail or not elem.tail.strip():
-             elem.tail = i
-         else:
-           if level and (not elem.tail or not elem.tail.strip()):
-             elem.tail = i
+    
 
     def Parser(inputFile):
         source = inputFile
-        out_file = open(inputFile[:-5] + "_Tokenizertest.xml","wb")
-        tokenizer = jackTokenizer(source)
-        #writing tokenizer test file
+        out_file = open(inputFile[:-5] + "_Test.xml","w+")
+        cwrite = compilationEngine(source, out_file)
+        cwrite.compileClass()
         
-        xml_out = xml.Element("tokens")
-        while tokenizer.hasMoreTokens():
-            
-            tok_type = tokenizer.tokenType()
-            xml_line = xml.SubElement(xml_out,tok_type)
-            #alter string constant
-            if tokenizer.token[0] == '"':
-                xml_line.text = tokenizer.token[1:-1]
-            else:
-                xml_line.text = tokenizer.token
-            
-        indent(xml_out)
-        tr = xml.ElementTree(xml_out)
-        
-        tr.write(out_file)
-
         out_file.close()
 
+        
+    #If the  given argument is a file.
+        
     if os.path.isfile(inFile):
         Parser(inFile)
 
