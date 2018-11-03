@@ -8,7 +8,7 @@ import xml.etree.ElementTree as xml
 
 
 import SymbolTable
-
+import VMWriter
 
 
 
@@ -150,42 +150,42 @@ class compilationEngine:
         self.className=""
         self.symbolTable = SymbolTable.SymbolTable()        
         self.tokenizer = jackTokenizer(infile)
-        self.op = outfile
+        self.writer = VMWriter.VMWriter(outfile)
         self.indent = ""
-        self.mStack =[] #a stack to store all non terminal blocks opened which have to be closed
+##        self.mStack =[] #a stack to store all non terminal blocks opened which have to be closed
         self.keywordConsts = {'true', 'false','null','this'}
         self.binaryOp = {'+','-','*','|','<','>','=','/','&'}
         self.unaryOp = {'-','~'}
 
         
-    def addIndent(self):
-        self.indent +="    "
-
-    def removeIndent(self):
-        self.indent = self.indent[:-4]
-    
-
-    def writeTerm(self, token, Ttype):
-        self.op.write(self.indent+"<"+Ttype+">"+ token + "</"+Ttype+">\n")
-
-
-    def startNonTerm(self, rule):
-        self.op.write(self.indent+"<"+rule+">\n")
-        self.addIndent()
-        self.mStack.append(rule)
-
-
-    def endNonTerm(self):
-        rule = self.mStack.pop()
-        self.removeIndent()
-        self.op.write(self.indent+"</"+rule+">\n")
-        
-    #method for checking symbol table
-
-    #def sWrite(self, name):
-    #   self.op.write("## ["+name+" "+self.symbolTable.typeOf(name)+" "+\
-    #      self.symbolTable.kindOf(name)+ " " +str(self.symbolTable.indexOf(name))+ "] ##\n")
-
+###    def addIndent(self):
+###       self.indent +="    "
+##
+###    def removeIndent(self):
+###        self.indent = self.indent[:-4]
+##    
+##
+###    def writeTerm(self, token, Ttype):
+###        self.op.write(self.indent+"<"+Ttype+">"+ token + "</"+Ttype+">\n")
+##
+##
+##    def startNonTerm(self, rule):
+###        self.op.write(self.indent+"<"+rule+">\n")
+###        self.addIndent()
+##        self.mStack.append(rule)
+##
+##
+##    def endNonTerm(self):
+##        rule = self.mStack.pop()
+###        self.removeIndent()
+###        self.op.write(self.indent+"</"+rule+">\n")
+##        
+##    #method for checking symbol table
+####
+####    #def sWrite(self, name):
+####    #   self.op.write("## ["+name+" "+self.symbolTable.typeOf(name)+" "+\
+####    #      self.symbolTable.kindOf(name)+ " " +str(self.symbolTable.indexOf(name))+ "] ##\n")
+####
 
 
     def advance(self):
@@ -197,7 +197,7 @@ class compilationEngine:
 
         if token in self.spl_char.keys():
             token = self.spl_char[token]
-        self.writeTerm(token, Ttype)
+        #self.writeTerm(token, Ttype)
         
             
         return token
@@ -263,20 +263,65 @@ class compilationEngine:
             print("ERROR!! expected " + string+"got: "   + nextToken)
             exit()
 
+
+    def Push(self, firstName):
+        if firstName in self.symbolTable.current_scope:
+            if self.symbolTable.kindOf(firstName) == "var":
+                self.writer.writePush('local', self.symbolTable.indexOf(firstName))
+            elif self.symbolTable.kindOf(firstName) == "arg":
+                self.writer.writePush('argument', self.symbolTable.indexOf(firstName))
+        
+        else:
+            if self.symbolTable.kindOf(firstName) == "static":
+                self.writer.writePush('static', self.symbolTable.indexOf(firstName))
+            else:
+                self.writer.writePush('this', self.symbolTable.indexOf(firstName))
+
+
+    def Pop(self, firstName):
+        if firstName in self.symbolTable.current_scope:
+            if self.symbolTable.kindOf(firstName) == "var":
+                self.writer.writePop('local', self.symbolTable.indexOf(firstName))
+            elif self.symbolTable.kindOf(firstName) == "arg":
+                self.writer.writePop('argument', self.symbolTable.indexOf(firstName))
+
+        else:
+            if self.symbolTable.kindOf(firstName) == "static":
+                self.writer.writePop('static', self.symbolTable.indexOf(firstName))
+            else:
+                self.writer.writePop('this', self.symbolTable.indexOf(firstName))
+
+                
+                
+            
+
+
+
+
+
+
+
+
+
+
+
+
     #API BEGINS
 
     #compile parameter list
 
     def compileParameterList(self):
-        self.startNonTerm("parameterList")
+        print("parameterlist")
+        #self.startNonTerm("parameterList")
         while self.existParameter():
             self.writeParameter()
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
 #compile class variable declarations
     def compileClassVarDec(self):
-        self.startNonTerm("classVarDec")
+        print("classvardec")
+        #self.startNonTerm("classVarDec")
         kind =""
         if self.nextToken() == "static":
             kind = "static"
@@ -304,14 +349,15 @@ class compilationEngine:
         
         self.eat(";")
 
-        self.endNonTerm()
+        #self.endNonTerm()
 
         
     
     #compiles class declaration
             
     def compileClass(self):
-        self.startNonTerm("class")
+        print("class")
+        #self.startNonTerm("class")
         self.eat("class") # get "class"
         self.className = self.advance() #get class name
         self.eat("{")
@@ -322,12 +368,13 @@ class compilationEngine:
             self.compileSubroutineDec()
 
         self.eat("}")
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
    #compile variable declaration     
     def compileVarDec(self):
-        self.startNonTerm("varDec")
+        print("vardec")
+        #self.startNonTerm("varDec")
         self.eat("var")
         typ = str(self.advance()) #get var-type
         name = self.advance() #get varName
@@ -347,13 +394,14 @@ class compilationEngine:
 
         
         self.eat(";")
-        self.endNonTerm()
+        #self.endNonTerm()
 
         
         
     #compile subroutine declaration
     def compileSubroutineDec(self):
-        self.startNonTerm("subroutineDec")
+        print("subroutine dec")
+        #self.startNonTerm("subroutineDec")
         if self.nextToken() == "constructor" or self.nextToken() == "function" or self.nextToken() == "method":
             self.advance() # get constructor | method | function
         else:
@@ -368,19 +416,20 @@ class compilationEngine:
         self.compileParameterList()
         self.eat(")")
         self.compileSubroutineBody()
-        self.endNonTerm()
+        #self.endNonTerm()
 
     #compiles subroutine body
 
     def compileSubroutineBody(self):
-        self.startNonTerm("subroutineBody")
+        print("subroutine body")
+        ##self.startNonTerm("subroutineBody")
         self.eat("{")
         while(self.existVarDec()):
             self.compileVarDec()
         
         self.compileStatements()
         self.eat("}")
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
     #
@@ -388,7 +437,8 @@ class compilationEngine:
     
     #compile Statements
     def compileStatements(self):
-        self.startNonTerm("statements")
+        print("statements")
+        #self.startNonTerm("statements")
         while self.existStatement():
             if self.nextToken() == "do":
                 self.compileDo()
@@ -400,12 +450,13 @@ class compilationEngine:
                 self.compileIf()
             elif self.nextToken() == "return":
                 self.compileReturn()
-        self.endNonTerm()    
+        #self.endNonTerm()    
 
     
     #compiles let statement
     
     def compileLet(self):
+        print("let")
         self.startNonTerm('letStatement')
         self.eat("let") # get 'let' keyword
         self.advance() # get varName
@@ -419,6 +470,7 @@ class compilationEngine:
 
     #compiles if statement
     def compileIf(self):
+        print("if")
         self.startNonTerm('ifStatement')
         
         self.eat("if") # get 'if' keyword
@@ -444,6 +496,7 @@ class compilationEngine:
     # compiles while statement(loop)
 
     def compileWhile(self):
+        print("while")
         self.startNonTerm("whileStatement")
 
         self.eat("while")
@@ -457,32 +510,53 @@ class compilationEngine:
         self.endNonTerm()
 
 
-    #compiles do statements (subroutine call
+    #compiles do statements (subroutine call  #completed ---
     def compileDo(self):
-        self.startNonTerm("doStatement")
+        print("do")
+        firstName = lastName = doStatement = ''
+        nLocals  = 0
+        #self.startNonTerm("doStatement")
         self.eat("do")
-        self.advance()
-        if self.nextToken() == ".":
+        firstName = self.advance()#get subroutine/var/class name
+
+        if self.nextToken() == ".":  #in case of className.subRoutineName
             self.eat(".")
-            self.advance()
+            lastName = self.advance()#get subRoutineName
+            if firstName in self.symbolTable.current_scope or firstName in self.symbolTable.local_scope:
+                self.Push(firstName)
+                fullName = self.symbolTable.typeOf(firstName)+"."+lastName;
+                nLocals +=1
+            else:
+                fullName = firstName+"."+lastName
+
+        else:
+            self.writer.writePush('pointer', 0)
+            nLocals += 1
+            fullName = self.className +"."+firstName
+
+
         self.eat("(")
-        self.compileExpressionList();
+        nLocals += self.compileExpressionList()
+        self.writer.writeCall(fullName, nLocals)
         self.eat(")")
         self.eat(";")
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
     #compiles return satement
     def compileReturn(self):
-        self.startNonTerm("returnStatement")
+        print("return")
+        #self.startNonTerm("returnStatement")
 
         self.eat("return")
         if self.nextToken() != ";":
             self.compileExpression()
-
+        else: # if there return type is void
+            self.writer.writePush("constant", 0)
+        self.writer.writeReturn()
         self.eat(";")
 
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
     
@@ -491,29 +565,64 @@ class compilationEngine:
         
     #compiles expression list
     def compileExpressionList(self):
-        self.startNonTerm('expressionList')
+        print("expression list")
+        counter = 0
+        #self.startNonTerm('expressionList')
         if self.existExpression():
             self.compileExpression()
+            counter += 1
         while self.nextToken() == ",":
             self.eat(",") #get the symbol ","
             if self.existExpression():
                 self.compileExpression()
-        
-        self.endNonTerm()
+                counter += 1
+        return counter
+        #self.endNonTerm()
         
 
     #compiles expressions
     def compileExpression(self):
-        self.startNonTerm('expression')
+        print("expression")
+        #self.startNonTerm('expression')
         self.compileTerm()
         while (self.nextToken() in self.binaryOp):
-            self.advance() # get the  binary op
-            self.compileTerm()
 
-        self.endNonTerm()
+            op = self.advance() # get the  binary op
+            self.compileTerm()
+            if op == "+":
+                self.writer.writeArithmetic("add")
+
+            elif op == "-":
+                self.writer.writeArithmetic("sub")
+
+            elif op == "=":
+                self.writer.writeArithmetic("eq")
+
+            elif op == ">":
+                self.writer.writeArithmetic("gt")
+
+            elif op == "<":
+                self.writer.writeArithmetic("lt")
+
+            elif op == "&":
+                self.writer.writeArithmetic("and")
+
+            elif op == "|":
+                self.writer.writeArithmetic("or")
+
+
+            elif op == "*":
+                self.writer.writeCall("Math.multiply", 2)
+
+            elif op == "/":
+                self.writer.writeCall("Math.divide", 2)
+
+
+        #self.endNonTerm()
 
     # compile subRoutine calls
     def compileSubroutinecall(self):
+        print("subroutinecall")
         self.startNonTerm("subroutineCall")
         self.advance() # get subroutine name  |  class name
         if self.nextToken() == ".": # if the above token is a class name
@@ -528,10 +637,11 @@ class compilationEngine:
         
     #compiles term
 
-    def compileTerm(self):
+    def compileTerm(self):  
+        print("term")
         #Grammar : varname | constant
-        self.startNonTerm("term")# to start the new non terminal block
-
+        #self.startNonTerm("term")# to start the new non terminal block
+    
         #print("compiling term"+self.nextValue())
         if self.nextValue() == "integerConstant" or self.nextValue() == "stringConstant" or (self.nextToken() in self.keywordConsts):
             self.advance() # to get the const
@@ -562,7 +672,7 @@ class compilationEngine:
             self.compileExpression()
             self.eat(")") # get ")"
 
-        self.endNonTerm()
+        #self.endNonTerm()
 
     
         
@@ -592,7 +702,7 @@ def main():
 
     def Parser(inputFile):
         source = inputFile
-        out_file = open(inputFile[:-5] + "_SymbolTest.xml","w+")
+        out_file = open(inputFile[:-5] + ".vm","w+")
         cwrite = compilationEngine(source, out_file)
         cwrite.compileClass()
         
