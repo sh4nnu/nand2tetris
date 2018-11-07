@@ -49,10 +49,10 @@ class SymbolTable:
     def varCount(self, kind):
         #prints the number of variables defined in the current scope
         
-        return len([v for (k,v) in current_scope.items() if (v[1] == kind)])
+        return len([v for (k,v) in self.current_scope.items() if (v[1] == kind)])
 
-    def globalVarCount(self, kind):
-        return len([v for (k,v) in global_scope.items() if (v[1] == kind)])
+    def globalCount(self, kind):
+        return len([v for (k,v) in self.global_scope.items() if (v[1] == kind)])
 
     def kindOf(self, name):
         """If the given variable is found in local scope it returns its kind,

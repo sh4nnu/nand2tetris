@@ -6,11 +6,11 @@ class VMWriter:
         
     def writePush(self, segment, index):
         """ This handles the push command"""
-        self.op.write("push "+ segement + " " + str(index) +"\n")
+        self.op.write("push "+ segment + " " + str(index) +"\n")
 
     def writePop(self, segment, index):
         """ This handles the pop command"""
-        self.op.write("pop "+ segement + " " + str(index) +"\n")
+        self.op.write("pop "+ segment + " " + str(index) +"\n")
 
 
     def writeArithmetic(self, command):
@@ -28,14 +28,14 @@ class VMWriter:
         self.op.write("if-goto "+ label +"\n")
     
     def writeCall(self, name, nArgs):
-        self.op.write("call "+ name + " " + nArgs +"\n")
+        self.op.write("call "+ name + " " + str(nArgs) +"\n")
 
     def writeFunction(self, name, nLocals):
-        self.op.write("function " + name + " " + nLocals+"\n") 
+        self.op.write("function " + name + " " + str(nLocals)+"\n")
 
 
     def writeReturn(self):
-        self.write("return") 
+        self.op.write("return\n")
 
     def close(self):
         self.op.close()

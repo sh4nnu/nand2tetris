@@ -142,13 +142,13 @@ class jackTokenizer:
 
 class compilationEngine:
 
-    
+
 
     spl_char = { '<':'&lt;', '>':'&gt;', '"':'&quot;','&':'&amp;'}
-    
+
     def __init__(self, infile, outfile):
         self.className=""
-        self.symbolTable = SymbolTable.SymbolTable()        
+        self.symbolTable = SymbolTable.SymbolTable()
         self.tokenizer = jackTokenizer(infile)
         self.writer = VMWriter.VMWriter(outfile)
         self.indent = ""
@@ -156,14 +156,15 @@ class compilationEngine:
         self.keywordConsts = {'true', 'false','null','this'}
         self.binaryOp = {'+','-','*','|','<','>','=','/','&'}
         self.unaryOp = {'-','~'}
+        self.function_type= ""
 
-        
+
 ###    def addIndent(self):
 ###       self.indent +="    "
 ##
 ###    def removeIndent(self):
 ###        self.indent = self.indent[:-4]
-##    
+##
 ##
 ###    def writeTerm(self, token, Ttype):
 ###        self.op.write(self.indent+"<"+Ttype+">"+ token + "</"+Ttype+">\n")
@@ -179,7 +180,7 @@ class compilationEngine:
 ##        rule = self.mStack.pop()
 ###        self.removeIndent()
 ###        self.op.write(self.indent+"</"+rule+">\n")
-##        
+##
 ##    #method for checking symbol table
 ####
 ####    #def sWrite(self, name):
@@ -198,18 +199,19 @@ class compilationEngine:
         if token in self.spl_char.keys():
             token = self.spl_char[token]
         #self.writeTerm(token, Ttype)
-        
-            
+
+
         return token
 
     def nextValue(self):
         value = self.tokenizer.nextValue()
         return value
-        
+
     def nextToken(self):
         return self.tokenizer.nextToken()
 
     def writeArrayIndex(self):
+
         self.advance()  #get "["
         self.compileExpression() # compile the expression in the indexholder
         self.advance() # get "]"
@@ -224,7 +226,7 @@ class compilationEngine:
         return (Ttype == "integerConstant" or Ttype == "stringConstant" \
             or Ttype == "identifier" or token in self.unaryOp \
             or token in self.keywordConsts or token == "(")
-            
+
 
     def existStatement(self):
         return (self.nextToken() == "do") \
@@ -233,7 +235,7 @@ class compilationEngine:
                or (self.nextToken() == "while") \
                or (self.nextToken() == "return") \
 
-    
+
     def existVarDec(self):
         return (self.nextToken() == "var")
 
@@ -247,7 +249,7 @@ class compilationEngine:
         return not (self.nextValue() == "symbol")
 
     def writeParameter(self):
-        
+
         typ = self.advance() # get type
         name = self.advance() # get var name
         self.symbolTable.define(name, typ, "arg")
@@ -270,7 +272,7 @@ class compilationEngine:
                 self.writer.writePush('local', self.symbolTable.indexOf(firstName))
             elif self.symbolTable.kindOf(firstName) == "arg":
                 self.writer.writePush('argument', self.symbolTable.indexOf(firstName))
-        
+
         else:
             if self.symbolTable.kindOf(firstName) == "static":
                 self.writer.writePush('static', self.symbolTable.indexOf(firstName))
@@ -291,9 +293,9 @@ class compilationEngine:
             else:
                 self.writer.writePop('this', self.symbolTable.indexOf(firstName))
 
-                
-                
-            
+
+
+
 
 
 
@@ -312,11 +314,16 @@ class compilationEngine:
 
     def compileParameterList(self):
         print("parameterlist")
+        count = 0
         #self.startNonTerm("parameterList")
+        if self.function_type == "method":
+            self.symbolTable.define("this","self","arg")
         while self.existParameter():
             self.writeParameter()
+            count += 1
         #self.endNonTerm()
 
+        return count
 
 #compile class variable declarations
     def compileClassVarDec(self):
@@ -337,24 +344,24 @@ class compilationEngine:
         #test for symbol table
         #self.sWrite(name)
 
-        
+
         while self.nextToken() == ",":
             self.eat(",")
             name = self.advance() #get var Name
             self.symbolTable.define(name, typ, kind)
-            
+
             #test for symbol table
             #self.sWrite(name)
 
-        
+
         self.eat(";")
 
         #self.endNonTerm()
 
-        
-    
+
+
     #compiles class declaration
-            
+
     def compileClass(self):
         print("class")
         #self.startNonTerm("class")
@@ -369,9 +376,9 @@ class compilationEngine:
 
         self.eat("}")
         #self.endNonTerm()
+        self.writer.close()
 
-
-   #compile variable declaration     
+   #compile variable declaration --completed
     def compileVarDec(self):
         print("vardec")
         #self.startNonTerm("varDec")
@@ -379,31 +386,31 @@ class compilationEngine:
         typ = str(self.advance()) #get var-type
         name = self.advance() #get varName
         self.symbolTable.define(name, typ, "var")
-        
+
         #test for symbol table
         #self.sWrite(name)
 
-        
+
         while (self.nextToken() == ","):
             self.eat(",")
             name = self.advance()
             self.symbolTable.define(name, typ, "var")
-            
+
             #test for symbol table
             #self.sWrite(name)
 
-        
+
         self.eat(";")
         #self.endNonTerm()
 
-        
-        
-    #compile subroutine declaration
+
+
+    #compile subroutine declaration --completed
     def compileSubroutineDec(self):
         print("subroutine dec")
         #self.startNonTerm("subroutineDec")
         if self.nextToken() == "constructor" or self.nextToken() == "function" or self.nextToken() == "method":
-            self.advance() # get constructor | method | function
+            self.function_type =    self.advance() # get constructor | method | function
         else:
             print("ERROR!!! keyword expected")
             return
@@ -413,12 +420,12 @@ class compilationEngine:
         self.symbolTable.startSubroutine(self.name)
         self.symbolTable.setScope(self.name)
         self.eat("(")
-        self.compileParameterList()
+        nArgs =self.compileParameterList()
         self.eat(")")
         self.compileSubroutineBody()
         #self.endNonTerm()
 
-    #compiles subroutine body
+    #compiles subroutine body  --completed
 
     def compileSubroutineBody(self):
         print("subroutine body")
@@ -426,15 +433,35 @@ class compilationEngine:
         self.eat("{")
         while(self.existVarDec()):
             self.compileVarDec()
-        
+
+        nLocals = self.symbolTable.varCount("var")
+        self.writer.writeFunction(self.name,nLocals)
+        #if subroutine is a method or constructor
+
+
+        # for allocating space, handling both method and constructor
+
+        if self.function_type == "method":
+            #arg 0 is this.(of the method) , poping the method to THIS pointer
+            self.writer.writePush("argument", 0)
+            self.writer.writePop("pointer", 0)
+
+        elif self.function_type == "constructor":
+            nGlobals = self.symbolTable.globalCount("field")
+            self.writer.writePush("constant", nGlobals)
+            self.writer.writeCall("Memory.alloc", 1)
+            self.writer.writePop("pointer", 0)
+
         self.compileStatements()
         self.eat("}")
         #self.endNonTerm()
+        self.symbolTable.setScope("global")
 
 
-    #
 
-    
+
+
+
     #compile Statements
     def compileStatements(self):
         print("statements")
@@ -452,62 +479,92 @@ class compilationEngine:
                 self.compileReturn()
         #self.endNonTerm()    
 
-    
-    #compiles let statement
-    
+
+    #compiles let statement   --completed
+
     def compileLet(self):
         print("let")
-        self.startNonTerm('letStatement')
+        #self.startNonTerm('letStatement')
         self.eat("let") # get 'let' keyword
-        self.advance() # get varName
+        arr_name =self.advance() # get varName
+        isArray = False
         if self.nextToken() == '[':
-            self.writeArrayIndex()
+            isArray =True
+        self.compileArrayIndex(arr_name)
+
         self.eat("=") # get '=' symbol
+
         self.compileExpression()
+
+
+        if isArray:
+            self.writer.writePop("temp", 0)
+            self.writer.writePush("pointer",1)
+            self.writer.writePush("temp",0)
+            self.writer.writePop("that", 0)
+
+        else:
+            self.Pop(arr_name)
         self.eat(";") # get ';' symbol
-        self.endNonTerm()
+        #self.endNonTerm()
 
 
-    #compiles if statement
+    #compiles if statement --completed
     def compileIf(self):
         print("if")
-        self.startNonTerm('ifStatement')
-        
+        #self.startNonTerm('ifStatement')
+        curr_if_counter = self.symbolTable.if_counter
+        self.symbolTable.if_counter += 1
         self.eat("if") # get 'if' keyword
         self.eat("(") # get '(' symbol
         self.compileExpression()
         self.eat(")") # get ')' symbol
-        
+        #self.writer.writeArithmetic("not")
+        self.writer.writeIf("IF_LABEL"+ str(curr_if_counter))
+        self.writer.writeGoto("IF_FALSE" + str(curr_if_counter))
+        self.writer.writeLabel("IF_LABEL" + str(curr_if_counter))
         self.eat("{")
 
         self.compileStatements()
-        self.eat("}")        
+
+        self.eat("}")
 
         if self.nextToken() == "else":
             self.eat("else")
             self.eat("{")
-
+            self.writer.writeGoto("IF_END"+str(curr_if_counter))
+            self.writer.writeLabel("IF_FALSE" + str(curr_if_counter))
             self.compileStatements()
             self.eat("}")
+            self.writer.writeLabel("IF_END"+str(curr_if_counter))
 
-        self.endNonTerm()
+        else:
+            self.writer.writeLabel("IF_FALSE"+str(curr_if_counter))
 
 
-    # compiles while statement(loop)
+        #self.endNonTerm()
+
+
+    # compiles while statement(loop) --completed
 
     def compileWhile(self):
         print("while")
-        self.startNonTerm("whileStatement")
-
+        #self.startNonTerm("whileStatement")
+        curr_while_counter = self.symbolTable.while_counter
+        self.symbolTable.while_counter += 1
         self.eat("while")
         self.eat("(")
+        self.writer.writeLabel("WHILE_LABEL"+str(curr_while_counter))
         self.compileExpression()
         self.eat(")")
+        self.writer.writeArithmetic("not")
+        self.writer.writeIf("WHILE_END"+ str(curr_while_counter))
         self.eat("{")
         self.compileStatements()
         self.eat("}")
-
-        self.endNonTerm()
+        self.writer.writeGoto("WHILE_LABEL"+str(curr_while_counter))
+        self.writer.writeLabel("WHILE_END"+str(curr_while_counter))
+        #self.endNonTerm()
 
 
     #compiles do statements (subroutine call  #completed ---
@@ -522,7 +579,7 @@ class compilationEngine:
         if self.nextToken() == ".":  #in case of className.subRoutineName
             self.eat(".")
             lastName = self.advance()#get subRoutineName
-            if firstName in self.symbolTable.current_scope or firstName in self.symbolTable.local_scope:
+            if firstName in self.symbolTable.current_scope or firstName in self.symbolTable.global_scope:
                 self.Push(firstName)
                 fullName = self.symbolTable.typeOf(firstName)+"."+lastName;
                 nLocals +=1
@@ -538,12 +595,13 @@ class compilationEngine:
         self.eat("(")
         nLocals += self.compileExpressionList()
         self.writer.writeCall(fullName, nLocals)
+        self.writer.writePop("temp",0)
         self.eat(")")
         self.eat(";")
         #self.endNonTerm()
 
 
-    #compiles return satement
+    #compiles return satement --completed
     def compileReturn(self):
         print("return")
         #self.startNonTerm("returnStatement")
@@ -552,6 +610,7 @@ class compilationEngine:
         if self.nextToken() != ";":
             self.compileExpression()
         else: # if there return type is void
+            #self.writer.writePop("temp",0)
             self.writer.writePush("constant", 0)
         self.writer.writeReturn()
         self.eat(";")
@@ -559,11 +618,11 @@ class compilationEngine:
         #self.endNonTerm()
 
 
-    
-    
 
-        
-    #compiles expression list
+
+
+
+    #compiles expression list --completed
     def compileExpressionList(self):
         print("expression list")
         counter = 0
@@ -578,9 +637,9 @@ class compilationEngine:
                 counter += 1
         return counter
         #self.endNonTerm()
-        
 
-    #compiles expressions
+
+    #compiles expressions --completed
     def compileExpression(self):
         print("expression")
         #self.startNonTerm('expression')
@@ -598,18 +657,17 @@ class compilationEngine:
             elif op == "=":
                 self.writer.writeArithmetic("eq")
 
-            elif op == ">":
+            elif op == "&gt;":
                 self.writer.writeArithmetic("gt")
 
-            elif op == "<":
+            elif op == "&lt;":
                 self.writer.writeArithmetic("lt")
 
-            elif op == "&":
+            elif op == "&amp;":
                 self.writer.writeArithmetic("and")
 
             elif op == "|":
                 self.writer.writeArithmetic("or")
-
 
             elif op == "*":
                 self.writer.writeCall("Math.multiply", 2)
@@ -620,52 +678,158 @@ class compilationEngine:
 
         #self.endNonTerm()
 
-    # compile subRoutine calls
+    # compile subRoutine calls  --completed
     def compileSubroutinecall(self):
         print("subroutinecall")
-        self.startNonTerm("subroutineCall")
-        self.advance() # get subroutine name  |  class name
+        first_name = last_name = full_name = ""
+        nArgs =0
+        #self.startNonTerm("subroutineCall")
+        first_name = self.advance() # get subroutine name  |  class | var name
         if self.nextToken() == ".": # if the above token is a class name
             self.eat(".")
-            self.advance() # get subroutine name
+            last_name = self.advance() # get subroutine name
+
+            if first_name in self.symbolTable.local_scope or first_name in self.symbolTable.global_scope:
+                self.Push(first_name)
+                full_name = self.symbolTable.typeOf(first_name) + last_name #while using a method of an object
+                nArgs += 1
+
+            else:
+                full_name = first_name+ last_name       # if the subroutine called is from a class
+
+        else:
+            self.writer.writePush("pointer", 0) #when the subroutine called is a method
+            nArgs += 1
+
+            full_name = self.className + first_name
+
+
+
+
+
         self.eat("(")
-        self.compileExpressionList()
+        nArgs += self.compileExpressionList()
+        self.writer.writeCall(full_name,nArgs)
         self.eat(")")
 
-        self.endNonTerm()
+        #self.endNonTerm()
 
-        
-    #compiles term
+    #compiles array index
 
-    def compileTerm(self):  
+    def compileArrayIndex(self, name):
+        self.writeArrayIndex()
+        if name in self.symbolTable.current_scope:
+            if self.symbolTable.kindOf(name) == 'var':
+                self.writer.writePush('local', self.symbolTable.indexOf(name))
+            elif self.symbolTable.kindOf(name) == 'arg':
+                self.writer.writePush('argument', self.symbolTable.indexOf(name))
+        else:
+            if self.symbolTable.kindOf(name) == 'static':
+                self.writer.writePush('static', self.symbolTable.indexOf(name))
+            else:
+                self.writer.writePush('this', self.symbolTable.indexOf(name))
+        self.writer.writeArithmetic('add')
+
+    #compiles term  --completed
+
+    def compileTerm(self):
         print("term")
         #Grammar : varname | constant
         #self.startNonTerm("term")# to start the new non terminal block
-    
+
         #print("compiling term"+self.nextValue())
-        if self.nextValue() == "integerConstant" or self.nextValue() == "stringConstant" or (self.nextToken() in self.keywordConsts):
-            self.advance() # to get the const
+
+        isArray  = False
+        if self.nextValue() == "integerConstant":
+            const = self.advance() # to get the const
+            self.writer.writePush("constant", const)
+
+        if self.nextValue() == "stringConstant":
+            str_value = self.advance()
+            self.writer.writePush("constant", len(str_value))
+            self.writer.writeCall("String.new", 1)
+
+            for s in str_value:
+                self.writer.writePush("constant", ord(s))
+                self.writer.writeCall("String.appendChar", 2)
+
+
+        if (self.nextToken() in self.keywordConsts):
+            #handling keywords like "true" "false" "null" "this"
+            keyword = self.advance()
+
+            if keyword == "true":
+                self.writer.writePush("constant", 0)
+                self.writer.writeArithmetic("not")
+
+            elif keyword == "false" or keyword == "null":
+                self.writer.writePush("constant", 0)
+
+            elif keyword == "this":
+                self.writer.writePush("pointer", 0)
+
+
         elif self.nextValue() == "identifier":
-            self.advance() # get varName or ClassName
-            
+            nArgs=0
+            identif = self.advance()  # get varName or ClassName
+
             if self.nextToken() == "[":
-                self.writeArrayIndex()
+                isArray = True
+                self.compileArrayIndex(identif)
 
             if self.nextToken() == "(":
+                nArgs+=1
+                self.writer.writePush("pointer", 0)
                 self.eat("(") # get "("
-                self.compileExpressionList()
+                nArgs += self.compileExpressionList()
                 self.eat(")") # get ")"
+                self.writer.writeCall(self.className+"."+identif, nArgs)
 
-            if self.nextToken() == ".": # handles with subroutine call
+            elif self.nextToken() == ".": # handles with subroutine call
                 self.eat(".") # get "."
-                self.advance() # get subRoutine name
+                sub_name = self.advance() # get subRoutine name
+                if identif in self.symbolTable.current_scope or identif in self.symbolTable.global_scope:
+                    self.Push(identif)
+                    name = self.symbolTable.typeOf(identif)+"."+ sub_name
+                    nArgs+=1
+
+                else:
+                    name = identif + "."+ sub_name
                 self.eat("(") # get "("
-                self.compileExpressionList()
+                nArgs+=self.compileExpressionList()
                 self.eat(")") # get ")"
+                self.writer.writeCall(name, nArgs)
+
+            else:
+                if isArray:
+                    self.writer.writePop("pointer", 1)
+                    self.writer.writePush("that", 0)
+
+                elif identif in self.symbolTable.current_scope:
+                    if self.symbolTable.kindOf(identif) == "var":
+                        self.writer.writePush("local",self.symbolTable.indexOf(identif))
+
+                    elif self.symbolTable.kindOf(identif) == "arg":
+                        self.writer.writePush("argument",self.symbolTable.indexOf(identif))
+
+                else:
+                    if self.symbolTable.kindOf(identif) == "static":
+                        self.writer.writePush("static", self.symbolTable.indexOf(identif))
+
+                    else:
+                        self.writer.writePush("this", self.symbolTable.indexOf(identif))
+
 
         elif (self.nextToken() in self.unaryOp):
-            self.advance()# get op
+            Uop = self.advance()# get op
+
+
             self.compileTerm()
+            if (Uop == "-"):
+                self.writer.writeArithmetic("neg")
+
+            elif (Uop == "~"):
+                self.writer.writeArithmetic("not")
 
         elif self.nextToken() == "(":
             self.eat("(") # get "("
