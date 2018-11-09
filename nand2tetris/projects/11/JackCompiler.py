@@ -157,7 +157,7 @@ class compilationEngine:
         self.binaryOp = {'+','-','*','|','<','>','=','/','&'}
         self.unaryOp = {'-','~'}
         self.function_type= ""
-
+        self.is_unary = False
 
 ###    def addIndent(self):
 ###       self.indent +="    "
@@ -490,7 +490,7 @@ class compilationEngine:
         isArray = False
         if self.nextToken() == '[':
             isArray =True
-        self.compileArrayIndex(arr_name)
+            self.compileArrayIndex(arr_name)
 
         self.eat("=") # get '=' symbol
 
@@ -499,7 +499,7 @@ class compilationEngine:
 
         if isArray:
             self.writer.writePop("temp", 0)
-            self.writer.writePush("pointer",1)
+            self.writer.writePop("pointer",1)
             self.writer.writePush("temp",0)
             self.writer.writePop("that", 0)
 
@@ -744,7 +744,7 @@ class compilationEngine:
             const = self.advance() # to get the const
             self.writer.writePush("constant", const)
 
-        if self.nextValue() == "stringConstant":
+        elif self.nextValue() == "stringConstant":
             str_value = self.advance()
             self.writer.writePush("constant", len(str_value))
             self.writer.writeCall("String.new", 1)
@@ -754,7 +754,7 @@ class compilationEngine:
                 self.writer.writeCall("String.appendChar", 2)
 
 
-        if (self.nextToken() in self.keywordConsts):
+        elif (self.nextToken() in self.keywordConsts):
             #handling keywords like "true" "false" "null" "this"
             keyword = self.advance()
 
@@ -839,7 +839,7 @@ class compilationEngine:
         #self.endNonTerm()
 
     
-        
+
 
 
 
