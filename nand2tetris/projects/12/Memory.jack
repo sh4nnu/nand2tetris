@@ -10,21 +10,71 @@
  */ 
 class Memory {
 
+	static Array ram;
+	static int heapBase, heapMax;
+	static int size, nextNode,  EOList;
+
     /** Initializes the class. */
     function void init() {
+		let heap = 0;
+		let heapBase = 2048;
+		let heapMax = 16384;
+		let size = heapBase;
+		let nextNode = heapBase + 1;
+		let EOList = -1;
+		let heap[length] = heapMax - heapBase;
+		let heap[nextNode] = EOList; 
+		return;
     }
 
     /** Returns the RAM value at the given address. */
     function int peek(int address) {
+		return heap[address];
     }
 
     /** Sets the RAM value at the given address to the given value. */
     function void poke(int address, int value) {
+		let heap[address] = value;
+		return;
     }
 
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
+		var int currentNode;
+		var int prevNode;
+		var int next;
+		var int returnAddress;
+
+
+		let prevNode = size;
+		let currentNode = size;
+		let next = nextNode;
+		let returnAdress = -1;
+
+		while( ~ ( heap[currentNode] > size) & ~( heap[next] = EOList) ){
+			let prevNode = currentNode;
+			let currentNode = heap[next];
+			let next = heap[next + 1];
+			//using first fit.
+			//TODO: have to  try implementing best fit.		
+			
+			if( ~ ( next = EOList) ){
+				if( currentNode < (size + 3)){
+					let heap[ prevNode + 1 ] = heap[ currentNode +1];
+					let heap[currentNode] = size + 1;
+					let returnAddress = currentNode + 1;
+				}
+				else {
+					let heap[currentNode] = heap[currentNode] - size - 1;
+					let returnAddress = currentNode + heap[currentNode];
+					let heap[returnAddress - 1 ] = size + 1;
+				}
+			}
+			
+		}
+		return returnAddress;
+
     }
 
     /** De-allocates the given object (cast as an array) by making

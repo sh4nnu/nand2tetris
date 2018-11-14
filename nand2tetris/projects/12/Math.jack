@@ -142,4 +142,8 @@ class Math {
 	function boolean bit(int x, int i){
 		return ~((x & twoToThe[i] = 0));
 	}
+
+	function int modulo(int n , int d) {
+		return (n - d * (Math.divide(n, d)));
+	}
 }
