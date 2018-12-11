@@ -1,0 +1,1 @@
+This project 6 I chose non-programming part, where we convert .asm files to .hack files manually.
