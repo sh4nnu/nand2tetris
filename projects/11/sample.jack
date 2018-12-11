@@ -1,7 +1,0 @@
-
-class Main {
-
-    function void main() {
-let a[b[a[3]]] = a[a[5]] * b[((7 - a[3]) - Main.double(2)) + 1];  // a[5] = 8 * 5 = 40
-}
-}
