@@ -10,7 +10,7 @@
  * the screen is indexed (0,0).
  */
 class Screen {
-	
+	//TODO: add error handling in every function.
 
 	static boolean White;
 	static boolean Black;
@@ -55,7 +55,7 @@ class Screen {
 			let screen[address] = screen[address] | value;
 		}
 		else {
-			let screen[address] = screen[address] & (~value);
+			let screen[address] = screen[address] & ~value;
 		}
 
 
@@ -93,22 +93,126 @@ class Screen {
 		}
 		return;
 	}
-    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
-	function void drawDiagnolLine(int x1, int x2, int x3, int x4){
-
+    /** Draws a diagnol line from pixel (x1,y1) to the coordinate (x2, y2) using the current color. */
+	function void drawDiagonalLine(int x1, int y1, int dx, int dy){
+	// calculating the difference between the two points
+			var int pr , i, j;
+    	let pr = 0;
+    	let i = 0;
+    	let j = 0;
+    	while ((~(i > dx)) & (~(j < dy))) {
+    		do Screen.drawPixel(x1 + i, y1 + j);
+    		if (pr < 0) {
+    			let j = j - 1;
+    			let pr = pr + dx;
+    		} else {
+    			let i = i + 1;
+    			let pr = pr + dy;
+    		}
+    	}
+	
+		return;
 	}
 
 	
     function void drawLine(int x1, int y1, int x2, int y2) {
+		var int dx, dy, initX, initY, i, j, prop;
+	
+		let dx = x2 - x1;
+		let dy = y2 - y1;
+		
+		let initX = Math.min( x1, x2 );
+		let initY = Math.min( y1, y2 );
+
+		// draw diagnol lines 
+		if ( ( (dx < 0) & (dy > 0) ) | ( ( dx > 0) & ( dy < 0 ) ) ) {
+		if ( dy < 0 ) {
+			do Screen.drawDiagonalLine(x1, y1, dx, dy);
+		}
+		else {
+			if ( dx < 0) {
+			do Screen.drawDiagonalLine(x2, y2, -dx, -dy);
+			}
+			else{
+			do Screen.drawDiagonalLine(x1, y1, dx, -dy);
+			}		
+		}
+		return;
+		}
+
+		else{
+			let dx = Math.abs( dx );
+			let dy = Math.abs( dy );
+		}
+		
+		// when dy = 0 its a vertical line
+
+		if ( dy = 0 ){
+			do Screen.drawHorizontalLine(initX, initY, dx);
+			return;
+		}
+		
+		//when dx = 0 it's a horizontal line
+		
+		if ( dx = 0 ){
+			do Screen.drawVerticalLine(initX, initY, dy);
+			return;
+		}
+	
+		let i = 0;
+		let j = 0;
+		
+		let prop = 0;
+		
+		while( ~(i > dx) & ~(j > dy)) {
+			do Screen.drawPixel(initX + i, initY + j);
+			// prop is used for optimization of slope
+			// if prop is positive it mmeans our line have to be drawn a little higher.			
+			if (prop < 0) {
+			let i = i + 1;
+			let prop = prop + dy;
+			}
+			else{
+				let j = j + 1;
+				let prop = prop - dx;
+			}
+
+		}
+		
+		return;
     }
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+		var int dx, dy, initX, initY, i;
 		
+		let dx = Math.abs( x2 - x1);
+		let dy = Math.abs( y2 - y1);
+		
+		let initX = Math.min( x1, x2);
+		let initY = Math.min( y1, y2);
+		
+		let i = 0;
+		while( i < dy ) {
+			do Screen.drawHorizontalLine(initX, initY+i, dx);
+			let i = i + 1;
+		}
+		return;
     }
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+		var int dy;
+		var int length;
+		
+		let dy = -r;
+		
+		while( ~(dy > r)) {
+			let length = Math.sqrt( (r * r) - (dy * dy)); //pythogeras theorem
+			do Screen.drawHorizontalLine(x - length, y + dy, 2 * length);
+			let dy = dy + 1;
+		}
+		return;
     }
 }

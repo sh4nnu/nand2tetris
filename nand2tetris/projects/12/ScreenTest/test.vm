@@ -1,0 +1,13 @@
+function Main.main 0
+push constant 23
+push constant 45
+call Screen.drawPixel 2
+pop temp 0
+push pointer 0
+push constant 26
+push constant 45
+push constant 50
+call Main.drawHorizontalLine 4
+pop temp 0
+push constant 0
+return
