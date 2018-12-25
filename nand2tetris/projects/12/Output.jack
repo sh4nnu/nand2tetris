@@ -17,16 +17,27 @@
 class Output {
 
     // Character map for displaying characters
-    static Array charMaps; 
-
+    static Array charMaps;
+	static Array charMasks;
+	static Array screen;
+	static int Xcoord, Ycoord; // column and row respectively.
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+		let screen = 16384;
+		let Xcoord = 0;
+		let Ycoord = 0;
+		let charMasks = Array.new(2);
+		let charMasks[0] = 255;
+		let charMasks[1] = -1 & 255;
+		do Output.initMap();
+		return;
+		
     }
 
     // Initializes the character map array
     function void initMap() {
         var int i;
-    
+
         let charMaps = Array.new(127);
         
         // Black square, used for displaying non-printable characters.
@@ -71,7 +82,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,0,12,30,51,51,63,51,51,51,0,0);          // A ** TO BE FILLED **
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -100,6 +111,7 @@ class Output {
 
         do Output.create(91,30,6,6,6,6,6,6,6,30,0,0);          // [
         do Output.create(92,0,0,1,3,6,12,24,48,32,0,0);        // \
+
         do Output.create(93,30,24,24,24,24,24,24,24,30,0,0);   // ]
         do Output.create(94,8,28,54,0,0,0,0,0,0,0,0);          // ^
         do Output.create(95,0,0,0,0,0,0,0,0,0,63,0);           // _
@@ -176,28 +188,108 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+		let Xcoord = j;
+		let Ycoord = i;
+		return;
+		
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+
+		var Array map;
+		var int address;
+		var int bitpattern;
+		var int mask;
+		var int i;
+
+		let map = Output.getMap(c); 
+
+		let address = ( Ycoord * 32 * 11) + ( Xcoord / 2 );
+// if the 16 bit int is even mask is zero if its odd mask is 1, we are using this 16 bit as 2 - 8 bits... so if while writing a char if it goes to odd region we are going to set it to even part of 16 bit value.
+		let mask = Xcoord & 1;
+		
+		let i = 0;
+
+		while ( i < 11) {
+			let bitpattern = map[i];
+			if ( mask = 1) {
+					let bitpattern = bitpattern * 256; // this shifts the bit pattern on right side to left side.
+			}
+					let screen[address] = screen[address] & charMasks[mask] | bitpattern; // we are first clearing the area then printing the char.
+					let address = address + 32; // to next line below
+
+					let i = i + 1;
+			}
+
+			// at end of line
+			if (Xcoord = 63) {
+				if ( Ycoord = 22) {
+					do Output.moveCursor(0,0); // at bottom right corner of screen goto beginnig
+				}
+				else {
+					do Output.println();
+				}
+			}
+			else { 
+				let Xcoord = Xcoord + 1;
+			}
+			return;		
+	
+		
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
-    }
+
+		var int i;
+		let i = 0;
+		while ( i < s.length()) {
+			do Output.printChar(s.charAt(i));
+			let i = i + 1;
+		}
+		return;
+    
+	}
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+
+		var String s;
+		let s = String.new(16); // since integer is a 16 bit in our processor.
+		do s.setInt(i);
+		do Output.printString(s);
+		do s.dispose();
+		return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+		let Xcoord = 0;
+		if ( Ycoord < 22) {
+			let Ycoord = Ycoord + 1;
+		}
+		else {
+			let Ycoord = 0; // TODO: implement scroll method instead of clear.
+		}
+		return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+
+		if (Xcoord = 0) {
+			if (  Ycoord > 0 ) {
+				let Xcoord = 63;
+				let Ycoord = Ycoord - 1;
+			}
+		}
+		else {
+			let Xcoord = Xcoord - 1;
+		}
+		return;
     }
 }
