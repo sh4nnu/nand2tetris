@@ -56,8 +56,13 @@ class Keyboard {
 		while ( Keyboard.keyPressed() = 0) {}
 		let	c = Memory.peek(24576);
 		while( ~( Keyboard.keyPressed() = 0 ) ) {}
+		if (c = String.backSpace() ){
+			do Output.backSpace();
+		}
+		else{		
 		do Output.printChar(c);
-		return c;
+		}		
+	return c;
     }
 
     /**								
@@ -76,14 +81,16 @@ class Keyboard {
 		while( ~( c = String.newLine() )){
 			if ( c = String.backSpace()){
 				do str.eraseLastChar();
+				
 			}
 			
 			else {
 				do str.appendChar(c);
 			}
 			let c = Keyboard.readChar();
-			return str;
+			
 }
+return str;
     }   
 
     /**								
