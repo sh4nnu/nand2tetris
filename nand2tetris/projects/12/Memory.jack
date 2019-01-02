@@ -8,22 +8,39 @@
  * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
  * consists of 32,768 words, each holding a 16-bit binary number.
  */ 
+// refering to http://nand2tetris-questions-and-answers-forum.32033.n3.nabble.com/New-Heap-Management-algorithm-Coursera-version-td4032026.html
 class Memory {
 
 	static Array heap;
-	static int heapBase, heapMax;
-	static int size, nextNode,  EOList;
+	static Array freeList;
+	static Array EOList;
 
+	// Free block headers
+		// .FLsize : size of obj inclusive of the two attributes
+		// .FLnext : next free obj (block) address.
+	// alloc block headers
+		// alloc block can be inside a free block
+		// size: size of alloc block including 1 header word
+		// size allocated
+
+
+	static int FLsize; // length of free list
+	static int FLnext; // next index of freelist header 
+	
+	static int allocSize;	
+		
     /** Initializes the class. */
     function void init() {
 		let heap = 0;
-		let heapBase = 2048;
-		let heapMax = 16384;
-		let size = heapBase;
-		let nextNode = heapBase + 1;
-		let EOList = -1;
-		let heap[size] = heapMax - heapBase;
-		let heap[nextNode] = EOList; 
+		// heapBase = 2048
+		// heapMax = 16384
+		let freeList = 2048;
+		let EOList = 16384; // End of heap/ list.
+		let FLsize = 0;
+		let FLnext = -1; 	
+		let allocSize = -1;
+		let freeList[FLsize] = 16384 - 2048;
+		let freeList[FLnext] = null;
 		return;
     }
 
@@ -41,45 +58,131 @@ class Memory {
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
-		var int currentNode;
-		var int prevNode;
-		var int next;
-		var int returnAddress;
+		var Array prevNode;
+		var Array currentNode;
+		
+		// finding the best fit and setting it to the prev node and current points to the null part.
+		let prevNode  = Memory.bestFit( size );
 
-
-		let prevNode = size;
-		let currentNode = size;
-		let next = nextNode;
-		let returnAddress = -1;
-
-		while( ~ ( heap[currentNode] > size) & ~( heap[next] = EOList) ){
-			let prevNode = currentNode;
-			let currentNode = heap[next];
-			let next = heap[next + 1];
-			//using first fit.
-			//TODO: have to  try implementing best fit.		
-			
-			if( ~ ( next = EOList) ){ // if found free block in the middle of the list
-				if( currentNode < (size + 3)){
-					let heap[ prevNode + 1 ] = heap[ currentNode +1];
-					let heap[currentNode] = size + 1;
-					let returnAddress = currentNode + 1;
-				}
-				else {
-					let heap[currentNode] = heap[currentNode] - size - 1;
-					let returnAddress = currentNode + heap[currentNode];
-					let heap[returnAddress - 1 ] = size + 1;
-				}
-			}
-			
+		if ( prevNode = null){
+		// no free space found.
+		let currentNode = null;
 		}
-		return returnAddress;
-
+		 
+		else{
+			if (prevNode = null) {
+				let currentNode = freeList;
+				let freeList = Memory.allocate(currentNode, size); // adding first bloxk in begining off freelist
+				}
+			else{
+				let currentNode = prevNode[FLnext];
+				let prevNode[FLnext]  = Memory.allocate(currentNode, size); // adding new block in before the null block.
+			}		
+		
     }
+	return currentNode + 1;
+}
 
+/** Finds the free node that best-fit */
+	function Array bestFit( int size) {
+		var Array best, prev, curr;
+		var int currsize, bestsize;
+		
+		let best = EOList;
+		let bestsize = 0;
+		let curr = freeList;
+		let prev = null;
+
+		while ( ~( curr = null ) ){
+			let currsize = curr[FLsize] - 1; // number of available block ( we are returning currnode + 1 in alloc func ) so just need to decrease one for the size of block.
+			
+			
+			if ( ~( currsize < size)  &  ( currsize < bestsize) ) {
+				let best = prev;
+				let bestsize = currsize;
+			}
+			let  prev = curr;
+			let curr = curr[FLnext];
+		}
+		return best;
+	}
+
+	/** Does the allocation part of our alloc function*/
+
+	function Array allocate( Array currentNode, int size){
+		var Array nextNode;
+		var int blocksize;
+		// fragmentation.
+		if ( currentNode[FLnext] > ( size + 1 + 2)) { // block can consists free headers and alloc header
+			let nextNode = currentNode + size + 1; // leaving a byte for alloc header
+			let nextNode[FLnext] = currentNode[FLnext];
+			let nextNode[FLsize] = currentNode[FLsize] - ( nextNode - currentNode);
+			let currentNode = currentNode +1; // address just after alloc header
+			let currentNode[allocSize] = size + 1; // size includes alloc header
+		}
+		
+		// allocating the whole block
+		else{
+			let nextNode = currentNode[FLnext];
+			let blocksize = currentNode[FLsize];
+			let currentNode = currentNode + 1; // right after alloc header.
+			let currentNode[allocSize] = blocksize;
+	}
+		return nextNode;
+	}
+		
+	
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
     function void deAlloc(Array o) {
+
+		var int allocsize;
+		var Array nextBlock, prevBlock, block;
+		
+		let allocsize = o[allocSize];
+		let o = o - 1; // pointing to start of the block.
+		
+		let block = freeList;
+		if( o < freeList){
+			let block = null;
+		}
+		else{		
+		while ( ~( block[FLnext] = null ) & ( block[FLnext] < o)){
+			let block = block[FLnext];	
+		} 
+		}
+				
+		let prevBlock = block;
+		
+		// if o becomes first element for freelist
+		if ( prevBlock = null) {
+			let o[FLsize] = allocsize;
+			let o[FLnext] = freeList;
+			let freeList = o;
+			let prevBlock = o;
+		}
+		
+		else{
+			// if prev and new element are continuos , defragmenting them
+			if( ( prevBlock + prevBlock[FLsize]) = o) {
+				let prevBlock[FLsize] = prevBlock[FLsize] + allocsize;
+			}
+			
+			else {
+				// linking prev block with the new alloc block
+					let o[FLsize] = allocsize;
+					let o[FLnext] = prevBlock[FLnext];
+					let prevBlock[FLnext] = o;
+					let prevBlock = o;
+			}
+		}
+
+		// if right and alloc block and continuous and defragmenting them.
+		if ( ( prevBlock + prevBlock[FLsize])  = prevBlock[FLnext]) {
+			let nextBlock = prevBlock[FLnext];
+			let prevBlock[FLsize] = prevBlock[FLsize] +	nextBlock[FLsize];
+			let prevBlock[FLnext] = nextBlock[FLnext];
+		}	
 		return;
     }    
 }
