@@ -1,7 +1,8 @@
+// File name: projects/03/b/RAM512.tst
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
-// File name: projects/03/b/RAM512.tst
+
 
 load RAM512.hdl,
 output-file RAM512.out,
